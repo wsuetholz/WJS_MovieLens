@@ -1,0 +1,5 @@
+{
+  "ConnectionStrings": {
+    "MovieLensContext": "Server=bitsql.wctc.edu;Database=MovieLens_##_xxxx;User ID=YYYY;Password=ZZZZZ;"
+  }
+}
