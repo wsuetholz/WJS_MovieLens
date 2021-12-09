@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Terminal.Gui;
 using Terminal.Gui.TextValidateProviders;
@@ -24,6 +25,9 @@ namespace WJS_MovieLens.GUI
         TableView genreView;
 
         User CurrentUser = null;
+
+        CancellationTokenSource loadVideosCancel = null;
+        Task loadVideos = null;
 
         string TitleFilter { get; set; }
         string OccupationFilter { get; set; }
@@ -58,7 +62,7 @@ namespace WJS_MovieLens.GUI
             var menu = new MenuBar(new MenuBarItem[]
             {
                 new MenuBarItem ("_System", new MenuItem[] {
-                    new MenuItem ("_Refresh", "Refresh List of Videos", () => { PopulateTables(); }),
+                    new MenuItem ("_Refresh", "Refresh List of Videos", () => { RefreshVideos(); }),
                     new MenuItem ("_Quit", "", () => { if (Quit()) RequestStop(); })
                 }),
                 new MenuBarItem ("_Edit", new MenuItem[] {
@@ -69,9 +73,9 @@ namespace WJS_MovieLens.GUI
                     new MenuItem ("_Rate Movie", "Rate the Selected Movie.", () => { VideoRate(); })
                 }),
                 new MenuBarItem ("_Filter", new MenuItem[] {
-                    new MenuItem ("_Title", "Filter on Video Title", () => { if (SetTitleFilter()) PopulateTables(); }),
-                    new MenuItem ("_Occupation", "Filter on Occupation Name.", () => { if (SetOccupationFilter()) PopulateTables(); }),
-                    new MenuItem ("_Clear", "Clear All Filters", () => { ClearFilters(); PopulateTables(); }),
+                    new MenuItem ("_Title", "Filter on Video Title", () => { if (SetTitleFilter()) RefreshVideos(); }),
+                    new MenuItem ("_Occupation", "Filter on Occupation Name.", () => { if (SetOccupationFilter()) RefreshVideos(); }),
+                    new MenuItem ("_Clear", "Clear All Filters", () => { ClearFilters(); RefreshVideos(); }),
                     new MenuItem ("_---------------------", "", null ),
                     new MenuItem ("_List Top", "Show One of The Top Rated Movies", () => { ShowTopRatedMovie(); }),
                     new MenuItem ("_Missing Occupations", "List of Occupations that HAVE NOT rated the selected movie.", () => { ShowMissingOccupations(); })
@@ -105,7 +109,8 @@ namespace WJS_MovieLens.GUI
             tableView.Table.Columns.Add("Avg", typeof(long));
             tableView.Table.Columns.Add("Max", typeof(long));
 
-            PopulateTables();   // Move to a background thread...
+            RefreshVideos();
+            //PopulateTables();   // Move to a background thread...
 
             //var scrollBar = new ScrollBarView(tableView, true);
             //scrollBar.ChangedPosition += () =>
@@ -129,6 +134,25 @@ namespace WJS_MovieLens.GUI
 
             Top.Add(Win);
             Top.Add(menu, statusBar);
+        }
+
+        public void RefreshVideos()
+        {
+            //if (loadVideos != null)
+            //{
+            //    if (loadVideos.Status == TaskStatus.Running)
+            //    {
+            //        loadVideosCancel.Cancel();
+            //    }
+
+            //    loadVideos.Wait();
+            //}
+
+            //loadVideosCancel = new CancellationTokenSource();
+            //loadVideos = new Task(() => { PopulateTables(); }, loadVideosCancel.Token);
+            //loadVideos.Start();
+
+            PopulateTables();
         }
 
         public void CreateUser()
@@ -482,15 +506,26 @@ namespace WJS_MovieLens.GUI
         {
             log.Info("PopulateTables Method Starting.");
 
+            //CancellationToken ct = loadVideosCancel.Token;
+
+            //if (ct.IsCancellationRequested)
+            //    return;
+
             int rowCount = 0;
             tableView.Table.Clear();
             tableView.Update();
+
+            //if (ct.IsCancellationRequested)
+            //    return;
 
             using (var db = new DbMediaService())
             {
                 var movieList = db.Movies.Where(x => x.Title.Contains(TitleFilter))
                     .Include(x => x.MovieGenres).ThenInclude(x => x.Genre)
                     .Include(x => x.UserMovies).ThenInclude(x => x.User).ThenInclude(x => x.Occupation);
+
+                //if (ct.IsCancellationRequested)
+                //    return;
 
                 foreach (var movie in movieList)
                 {
@@ -504,13 +539,20 @@ namespace WJS_MovieLens.GUI
                     }
 
                     if (ok)
+                    {
                         PopulateVideoRow(movie);
+                        if (((++rowCount) % 40) == 0)
+                        {
+                            tableView.Update();
+                        }
+                        //if (ct.IsCancellationRequested)
+                        //{
+                        //    tableView.Update();
+                        //    return;
+                        //}
+                    }
                 }
 
-                if (((rowCount++) % 40) == 0)
-                {
-                    tableView.Update();
-                }
             }
             tableView.Update();
 
@@ -1178,6 +1220,10 @@ namespace WJS_MovieLens.GUI
                                 MessageBox.Query(50, 7, "Completion", $"Video {userMovie.Movie.Title} has a Rating of {userMovie.Rating}.", "Ok");
                             }
                         }
+                    }
+                    else
+                    {
+                        MessageBox.Query(50, 7, $"There are videos that matched the current filters.", "Ok");
                     }
                 }
             }
