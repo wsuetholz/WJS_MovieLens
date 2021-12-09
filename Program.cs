@@ -16,10 +16,15 @@ namespace WJS_MovieLens
 
         static void Main(string[] args)
         {
+            var logger = NLog.LogManager.GetCurrentClassLogger();
+
+            logger.Info("Program WJS_MovieLens Started");
+
             var gui = new MovieGUI(null);
 
             gui.Run();
 
+            logger.Info("Program WJS_MovieLens Finished");
         }
     }
 }

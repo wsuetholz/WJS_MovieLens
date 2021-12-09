@@ -14,6 +14,8 @@ namespace WJS_MovieLens.GUI
 {
     public class MovieGUI : IDisposable
     {
+        NLog.Logger log = null;
+
         public Toplevel Top { get; set; }
 
         public Window Win { get; set; }
@@ -30,6 +32,10 @@ namespace WJS_MovieLens.GUI
 
         public MovieGUI(Toplevel top)
         {
+            log = NLog.LogManager.GetCurrentClassLogger();
+
+            log.Info("MovieGUI Initializing.");
+
             Application.Init();
 
             TitleFilter = "";
@@ -127,6 +133,8 @@ namespace WJS_MovieLens.GUI
 
         public void CreateUser()
         {
+            log.Info("CreateUser Method Starting.");
+
             bool okPressed = false;
 
             var ok = new Button("Ok", is_default: true);
@@ -237,6 +245,8 @@ namespace WJS_MovieLens.GUI
 
             if (okPressed)
             {
+                log.Info("CreateUser: OkPressed, Gender: {gender}, Age: {age}, Zip: {zip}, OccRow: {occrow}", tfGender.Text.ToString(), tfAge.Text.ToString(), tfZip.Text.ToString(), occupationView.SelectedRow);
+
                 if (!tfGender.IsValid)
                 {
                     MessageBox.Query(50, 7, "Error", "Gender must be M or F for Male or Female.", "Ok");
@@ -272,7 +282,7 @@ namespace WJS_MovieLens.GUI
                     }
                     catch (Exception ex)
                     {
-
+                        log.Error(ex, "Error setting up CurrentUser");
                     }
                 }
 
@@ -280,9 +290,12 @@ namespace WJS_MovieLens.GUI
                 {
                     using (var db = new DbMediaService())
                     {
+                        log.Info("CreateUser: Updating Database");
                         db.Update(CurrentUser);
 
                         db.SaveChanges();
+
+                        log.Info("CreateUser: Database Updated");
 
                         string gender = "Male";
                         if (CurrentUser.Gender.Equals("F"))
@@ -292,11 +305,15 @@ namespace WJS_MovieLens.GUI
                     }
                 }
             }
+            log.Info("CreateUser Method Finished.");
         }
 
         public bool SetTitleFilter()
         {
             var oldValue = TitleFilter;
+
+            log.Info("SetTitleFilter Method Starting.  Current Filter \"{filter}\"", oldValue.ToString());
+
             bool okPressed = false;
 
             var ok = new Button("Ok", is_default: true);
@@ -332,12 +349,17 @@ namespace WJS_MovieLens.GUI
                 TitleFilter = tfT.Text.ToString();
             }
 
+            log.Info("SetTitleFilter Method Finishing.  Current Filter \"{filter}\"", TitleFilter.ToString());
+
             return okPressed;
         }
 
         public bool SetOccupationFilter()
         {
             var oldValue = OccupationFilter;
+
+            log.Info("SetOccupationFilter Method Starting.  Current Filter \"{filter}\"", oldValue.ToString());
+
             bool okPressed = false;
 
             var ok = new Button("Ok", is_default: true);
@@ -388,11 +410,15 @@ namespace WJS_MovieLens.GUI
                 }                    
             }
 
+            log.Info("SetOccupationFilter Method Finishing.  Current Filter \"{filter}\"", OccupationFilter.ToString());
+
             return (okPressed && dataOk);
         }
 
         public void ClearFilters()
         {
+            log.Info("ClearFilters Method Called.");
+            
             TitleFilter = "";
             OccupationFilter = "";
         }
@@ -454,6 +480,8 @@ namespace WJS_MovieLens.GUI
 
         public void PopulateTables()
         {
+            log.Info("PopulateTables Method Starting.");
+
             int rowCount = 0;
             tableView.Table.Clear();
             tableView.Update();
@@ -486,10 +514,13 @@ namespace WJS_MovieLens.GUI
             }
             tableView.Update();
 
+            log.Info("PopulateTables Method Finished.");
         }
 
         public void VideoAdd()
         {
+            log.Info("VideoAdd Method Called.");
+
             Movie movie = null;
 
             movie = AddUpdateMovie(movie, true);
@@ -498,6 +529,8 @@ namespace WJS_MovieLens.GUI
 
         public void VideoEdit()
         {
+            log.Info("VideoEdit Method Called.");
+
             if (tableView == null || tableView.Table == null || tableView.SelectedRow < 0)
             {
                 MessageBox.Query(50, 7, "Error", "No Selected Row to Edit.", "Ok");
@@ -529,6 +562,8 @@ namespace WJS_MovieLens.GUI
 
         public void VideoDelete()
         {
+            log.Info("VideoDelete Method Called.");
+
             if (tableView == null || tableView.Table == null || tableView.SelectedRow < 0)
             {
                 MessageBox.Query(50, 7, "Error", "No Selected Row to Delete.", "Ok");
@@ -574,6 +609,8 @@ namespace WJS_MovieLens.GUI
 
         public void EditVideo(TableView.CellActivatedEventArgs e)
         {
+            log.Info("EditVideo Method Called.");
+
             long movieId = 0;
             Movie movie = null;
 
@@ -610,6 +647,8 @@ namespace WJS_MovieLens.GUI
 
         public void VideoRate()
         {
+            log.Info("VideoRate Method Called.");
+
             if (tableView == null || tableView.Table == null || tableView.SelectedRow < 0)
             {
                 MessageBox.Query(50, 7, "Error", "No Selected Row to Rate.", "Ok");
@@ -688,7 +727,9 @@ namespace WJS_MovieLens.GUI
                         userMovie.User = CurrentUser;
                     }
                     catch (Exception ex)
-                    { }
+                    {
+                        log.Error(ex, "Error setting up UserMovie");
+                    }
                 }
 
                 if (dataOk)
@@ -730,6 +771,8 @@ namespace WJS_MovieLens.GUI
 
         public Movie AddUpdateMovie(Movie movie, bool addMovie)
         {
+            log.Info("AddUpdateMovie Method Called.");
+
             string oldValue = "";
             if (movie == null)
             {
@@ -983,6 +1026,8 @@ namespace WJS_MovieLens.GUI
 
         public void ShowTopRatedMovie()
         {
+            log.Info("ShowTopRatedMovie Method Called.");
+
             long minAge;
             long maxAge;
             Occupation occupation;
@@ -1142,6 +1187,8 @@ namespace WJS_MovieLens.GUI
 
         public void ShowMissingOccupations()
         {
+            log.Info("ShowMissingOccupations Method Called.");
+
             if (tableView == null || tableView.Table == null || tableView.SelectedRow < 0)
             {
                 MessageBox.Query(50, 7, "Error", "No Selected Row to Check for Missing Occupations.", "Ok");
@@ -1249,6 +1296,8 @@ namespace WJS_MovieLens.GUI
 
         public bool Quit()
         {
+            log.Info("Quit Method Called.");
+
             var n = MessageBox.Query(50, 7, "Quit Movie Lens Program", "Are you sure you want to quit Movie Lens?", "Yes", "No");
             return n == 0;
         }
