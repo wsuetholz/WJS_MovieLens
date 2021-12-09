@@ -24,6 +24,7 @@ namespace WJS_MovieLens.GUI
         User CurrentUser = null;
 
         string TitleFilter { get; set; }
+        string OccupationFilter { get; set; }
 
         private bool disposedValue;
 
@@ -32,6 +33,7 @@ namespace WJS_MovieLens.GUI
             Application.Init();
 
             TitleFilter = "";
+            OccupationFilter = "";
 
             Top = top;
             if (Top == null)
@@ -50,6 +52,7 @@ namespace WJS_MovieLens.GUI
             var menu = new MenuBar(new MenuBarItem[]
             {
                 new MenuBarItem ("_System", new MenuItem[] {
+                    new MenuItem ("_Refresh", "Refresh List of Videos", () => { PopulateTables(); }),
                     new MenuItem ("_Quit", "", () => { if (Quit()) RequestStop(); })
                 }),
                 new MenuBarItem ("_Edit", new MenuItem[] {
@@ -60,9 +63,12 @@ namespace WJS_MovieLens.GUI
                     new MenuItem ("_Rate Movie", "Rate the Selected Movie.", () => { VideoRate(); })
                 }),
                 new MenuBarItem ("_Filter", new MenuItem[] {
-                    new MenuItem ("_Title", "Filter on Video Title", () => { SetTitleFilter(); PopulateTables(); }),
+                    new MenuItem ("_Title", "Filter on Video Title", () => { if (SetTitleFilter()) PopulateTables(); }),
+                    new MenuItem ("_Occupation", "Filter on Occupation Name.", () => { if (SetOccupationFilter()) PopulateTables(); }),
+                    new MenuItem ("_Clear", "Clear All Filters", () => { ClearFilters(); PopulateTables(); }),
+                    new MenuItem ("_---------------------", "", null ),
                     new MenuItem ("_List Top", "Show One of The Top Rated Movies", () => { ShowTopRatedMovie(); }),
-                    new MenuItem ("_Clear", "Clear All Filters", () => { ClearFilters(); PopulateTables(); })
+                    new MenuItem ("_Missing Occupations", "List of Occupations that HAVE NOT rated the selected movie.", () => { ShowMissingOccupations(); })
                 })
             });
 
@@ -227,72 +233,68 @@ namespace WJS_MovieLens.GUI
             tfGender.SetFocus();
 
             bool dataOk = true;
-            do
+            Application.Run(d);
+
+            if (okPressed)
             {
-                Application.Run(d);
-
-                dataOk = true;
-                if (okPressed)
+                if (!tfGender.IsValid)
                 {
-                    if (!tfGender.IsValid)
-                    {
-                        MessageBox.Query(50, 7, "Error", "Gender must be M or F for Male or Female.", "Ok");
-                        dataOk = false;
-                    }
-                    if (!tfAge.IsValid)
-                    {
-                        MessageBox.Query(50, 7, "Error", "Age must be filled in ranging from 0 to 999.", "Ok");
-                        dataOk = false;
-                    }
-                    if (!tfZip.IsValid)
-                    {
-                        MessageBox.Query(50, 7, "Error", "Zip Code must be filled in ranging from 0 to 99999.", "Ok");
-                        dataOk = false;
-                    }
-                    if (occupationView.SelectedRow < 0)
-                    {
-                        MessageBox.Query(50, 7, "Error", "You must select an occupation.", "Ok");
-                        dataOk = false;
-                    }
+                    MessageBox.Query(50, 7, "Error", "Gender must be M or F for Male or Female.", "Ok");
+                    dataOk = false;
+                }
+                if (!tfAge.IsValid)
+                {
+                    MessageBox.Query(50, 7, "Error", "Age must be filled in ranging from 0 to 999.", "Ok");
+                    dataOk = false;
+                }
+                if (!tfZip.IsValid)
+                {
+                    MessageBox.Query(50, 7, "Error", "Zip Code must be filled in ranging from 0 to 99999.", "Ok");
+                    dataOk = false;
+                }
+                if (occupationView.SelectedRow < 0)
+                {
+                    MessageBox.Query(50, 7, "Error", "You must select an occupation.", "Ok");
+                    dataOk = false;
+                }
 
-                    if (dataOk)
+                if (dataOk)
+                {
+                    try
                     {
-                        try
-                        {
-                            CurrentUser = new User();
-                            CurrentUser.Age = Int64.Parse(tfAge.Text.ToString());
-                            CurrentUser.ZipCode = tfZip.Text.ToString();
-                            CurrentUser.Gender = tfGender.Text.ToString().ToUpper();
-                            CurrentUser.Occupation = new Occupation();
-                            CurrentUser.Occupation.Id = (long)occupationView.Table.Rows[occupationView.SelectedRow][0];
-                            CurrentUser.Occupation.Name = occupationView.Table.Rows[occupationView.SelectedRow][1].ToString();
-                        }
-                        catch (Exception ex)
-                        {
+                        CurrentUser = new User();
+                        CurrentUser.Age = Int64.Parse(tfAge.Text.ToString());
+                        CurrentUser.ZipCode = tfZip.Text.ToString();
+                        CurrentUser.Gender = tfGender.Text.ToString().ToUpper();
+                        CurrentUser.Occupation = new Occupation();
+                        CurrentUser.Occupation.Id = (long)occupationView.Table.Rows[occupationView.SelectedRow][0];
+                        CurrentUser.Occupation.Name = occupationView.Table.Rows[occupationView.SelectedRow][1].ToString();
+                    }
+                    catch (Exception ex)
+                    {
 
-                        }
                     }
                 }
-            } while (okPressed && !dataOk);
 
-            if (okPressed && dataOk)
-            {
-                using (var db = new DbMediaService())
+                if (dataOk)
                 {
-                    db.Update(CurrentUser);
+                    using (var db = new DbMediaService())
+                    {
+                        db.Update(CurrentUser);
 
-                    db.SaveChanges();
+                        db.SaveChanges();
 
-                    string gender = "Male";
-                    if (CurrentUser.Gender.Equals("F"))
-                        gender = "Female";
+                        string gender = "Male";
+                        if (CurrentUser.Gender.Equals("F"))
+                            gender = "Female";
 
-                    MessageBox.Query(50, 7, "Completion", $"You Added a {CurrentUser.Age} year old {gender}\nLocated in Zip Code {CurrentUser.ZipCode}\nWith Occupation {CurrentUser.Occupation.Name}\nUser Record..", "Ok");
+                        MessageBox.Query(50, 7, "Completion", $"You Added a {CurrentUser.Age} year old {gender}\nLocated in Zip Code {CurrentUser.ZipCode}\nWith Occupation {CurrentUser.Occupation.Name}\nUser Record..", "Ok");
+                    }
                 }
             }
         }
 
-        public void SetTitleFilter()
+        public bool SetTitleFilter()
         {
             var oldValue = TitleFilter;
             bool okPressed = false;
@@ -329,11 +331,70 @@ namespace WJS_MovieLens.GUI
             {
                 TitleFilter = tfT.Text.ToString();
             }
+
+            return okPressed;
         }
-     
+
+        public bool SetOccupationFilter()
+        {
+            var oldValue = OccupationFilter;
+            bool okPressed = false;
+
+            var ok = new Button("Ok", is_default: true);
+            ok.Clicked += () => { okPressed = true; Application.RequestStop(); };
+            var cancel = new Button("Cancel");
+            cancel.Clicked += () => { Application.RequestStop(); };
+
+            var d = new Dialog("Set Video Rating User Occupation Filter", 40, 10, ok, cancel);
+
+            var lbl = new Label()
+            {
+                X = 0,
+                Y = 1,
+                Text = "Occupation Filter"
+            };
+
+            var tf = new TextField()
+            {
+                Text = oldValue,
+                X = 0,
+                Y = 2,
+                Width = Dim.Fill()
+            };
+
+            d.Add(lbl, tf);
+            tf.SetFocus();
+
+            bool dataOk = true;
+
+            Application.Run(d);
+
+            if (okPressed)
+            {
+                OccupationFilter = tf.Text.ToString();
+
+                if (OccupationFilter.Length > 0)
+                {
+                    using (var db = new DbMediaService())
+                    {
+                        var occupation = db.Occupations.FirstOrDefault(x => x.Name.Contains(OccupationFilter));
+                        if (occupation == null)
+                        {
+                            MessageBox.Query(50, 7, "Error", $"The String \"{OccupationFilter}\" does not match ANY occupations.\nPlease Try Again.", "Ok");
+                            dataOk = false;
+                            OccupationFilter = oldValue;
+                        }
+                    }
+                }                    
+            }
+
+            return (okPressed && dataOk);
+        }
+
         public void ClearFilters()
         {
             TitleFilter = "";
+            OccupationFilter = "";
         }
 
         public DataRow UpdateVideoRow(Movie movie, ref DataRow row)
@@ -399,11 +460,23 @@ namespace WJS_MovieLens.GUI
 
             using (var db = new DbMediaService())
             {
-                var movieList = db.Movies.Where(x => x.Title.Contains(TitleFilter)).Include(x => x.MovieGenres).ThenInclude(x => x.Genre).Include(x => x.UserMovies);
+                var movieList = db.Movies.Where(x => x.Title.Contains(TitleFilter))
+                    .Include(x => x.MovieGenres).ThenInclude(x => x.Genre)
+                    .Include(x => x.UserMovies).ThenInclude(x => x.User).ThenInclude(x => x.Occupation);
 
                 foreach (var movie in movieList)
                 {
-                    PopulateVideoRow(movie);
+                    bool ok = true;
+                    if (movie != null && movie.UserMovies != null && OccupationFilter.Length > 0)
+                    {
+                        var occ = movie.UserMovies.FirstOrDefault(x => x.User.Occupation.Name.Contains(OccupationFilter));
+
+                        if (occ == null)
+                            ok = false;
+                    }
+
+                    if (ok)
+                        PopulateVideoRow(movie);
                 }
 
                 if (((rowCount++) % 40) == 0)
@@ -594,49 +667,47 @@ namespace WJS_MovieLens.GUI
 
             bool dataOk = true;
             UserMovie userMovie = new UserMovie();
-            do
+
+            Application.Run(d);
+
+            if (okPressed)
             {
-                Application.Run(d);
-
-                dataOk = true;
-                if (okPressed)
+                if (!tfRate.IsValid)
                 {
-                    if (!tfRate.IsValid)
-                    {
-                        MessageBox.Query(50, 7, "Error", "Rate must be filled in ranging from 0 to 5.", "Ok");
-                        dataOk = false;
-                    }
-
-                    if (dataOk)
-                    {
-                        try
-                        {
-                            userMovie.Rating = Int64.Parse(tfRate.Text.ToString());
-                            userMovie.RatedAt = DateTime.Now;
-                            userMovie.Movie = movie;
-                            userMovie.User = CurrentUser;
-                        }
-                        catch (Exception ex)
-                        { }
-                    }
+                    MessageBox.Query(50, 7, "Error", "Rate must be filled in ranging from 0 to 5.", "Ok");
+                    dataOk = false;
                 }
-            } while (okPressed && !dataOk);
 
-            if (okPressed && dataOk)
-            {
-                using (var db = new DbMediaService())
+                if (dataOk)
                 {
-                    db.Update(userMovie);
+                    try
+                    {
+                        userMovie.Rating = Int64.Parse(tfRate.Text.ToString());
+                        userMovie.RatedAt = DateTime.Now;
+                        userMovie.Movie = movie;
+                        userMovie.User = CurrentUser;
+                    }
+                    catch (Exception ex)
+                    { }
+                }
 
-                    db.SaveChanges();
+                if (dataOk)
+                {
+                    using (var db = new DbMediaService())
+                    {
+                        db.Update(userMovie);
 
-                    string gender = "Male";
-                    if (CurrentUser.Gender.Equals("F"))
-                        gender = "Female";
+                        db.SaveChanges();
 
-                    MessageBox.Query(50, 10, "Completion", $"A User whom is a {CurrentUser.Age} year old {gender}\nLocated in Zip Code {CurrentUser.ZipCode}\nWith Occupation {CurrentUser.Occupation.Name}\nRated the Video {movie.Title}\nWith a Rating of {userMovie.Rating}..", "Ok");
+                        string gender = "Male";
+                        if (CurrentUser.Gender.Equals("F"))
+                            gender = "Female";
+
+                        MessageBox.Query(50, 10, "Completion", $"A User whom is a {CurrentUser.Age} year old {gender}\nLocated in Zip Code {CurrentUser.ZipCode}\nWith Occupation {CurrentUser.Occupation.Name}\nRated the Video {movie.Title}\nWith a Rating of {userMovie.Rating}..", "Ok");
+                    }
                 }
             }
+
 
         }
 
@@ -923,7 +994,7 @@ namespace WJS_MovieLens.GUI
             var cancel = new Button("Cancel");
             cancel.Clicked += () => { Application.RequestStop(); };
 
-            var d = new Dialog("Select Age Bracket or Occupation", 60, 30, ok, cancel);
+            var d = new Dialog("Select Age Bracket or Occupation", 60, 40, ok, cancel);
 
             var lblAge = new Label()
             {
@@ -938,7 +1009,7 @@ namespace WJS_MovieLens.GUI
                 X = 0,
                 Y = 2,
                 Width = Dim.Fill() - 1,
-                Height = Dim.Fill() - 1,
+                Height = 10,
             };
 
             ageView.FullRowSelect = true;
@@ -973,7 +1044,7 @@ namespace WJS_MovieLens.GUI
             var lblOccupation = new Label()
             {
                 X = 0,
-                Y = 8,
+                Y = 12,
                 Width = 14,
                 Text = "User Occupations.  Select One."
             };
@@ -981,9 +1052,9 @@ namespace WJS_MovieLens.GUI
             var occupationView = new TableView()
             {
                 X = 0,
-                Y = 9,
+                Y = 13,
                 Width = Dim.Fill() - 1,
-                Height = Dim.Fill() - 1,
+                Height = 20,
             };
 
             occupationView.FullRowSelect = true;
@@ -1067,6 +1138,113 @@ namespace WJS_MovieLens.GUI
             }
 
 
+        }
+
+        public void ShowMissingOccupations()
+        {
+            if (tableView == null || tableView.Table == null || tableView.SelectedRow < 0)
+            {
+                MessageBox.Query(50, 7, "Error", "No Selected Row to Check for Missing Occupations.", "Ok");
+                return;
+            }
+
+            long movieId = (long)tableView.Table.Rows[tableView.SelectedRow][0];
+
+            Movie movie = null;
+            using (var db = new DbMediaService())
+            {
+                movie = db.Movies.FirstOrDefault(movie => movie.Id == movieId);
+            }
+
+            if (movie == null)
+            {
+                MessageBox.Query(50, 7, "Error", "Movie not found in the database.", "Ok");
+                return;
+            }
+
+            IList<Occupation> missing = new List<Occupation>();
+            using (var db = new DbMediaService())
+            {
+                missing = db.Occupations.ToList();
+
+                var userMovies = db.UserMovies.Where(x => x.Movie.Id == movieId).Include(x => x.User).Include(x => x.User.Occupation);
+
+                foreach (var userMovie in userMovies)
+                {
+                    if (userMovie != null && userMovie.User != null && userMovie.User.Occupation != null)
+                    {
+                        foreach (var occupation in missing)
+                        {
+                            if (occupation.Id == userMovie.User.Occupation.Id)
+                            {
+                                missing.Remove(occupation);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            if (missing.Count > 0)
+            {
+                bool okPressed = false;
+
+                var ok = new Button("Ok", is_default: true);
+                ok.Clicked += () => { okPressed = true; Application.RequestStop(); };
+                var cancel = new Button("Cancel");
+                cancel.Clicked += () => { Application.RequestStop(); };
+
+                var d = new Dialog($"Results for Video \"{movie.Title}\".", 60, 20, ok, cancel);
+
+                var lblOccupation = new Label()
+                {
+                    X = 0,
+                    Y = 1,
+                    Width = 14,
+                    Text = "List of Occupations which have not rated video."
+                };
+
+                var occupationView = new TableView()
+                {
+                    X = 0,
+                    Y = 2,
+                    Width = Dim.Fill() - 1,
+                    Height = Dim.Fill() - 1,
+                };
+
+                occupationView.FullRowSelect = true;
+                occupationView.Style.ColumnStyles.Clear();
+                occupationView.Style.AlwaysShowHeaders = true;
+                occupationView.MaxCellWidth = 40;
+
+                occupationView.Table = new DataTable();
+                occupationView.Table.Columns.Add("Id", typeof(long));
+                occupationView.Table.Columns.Add("Occupation", typeof(string));
+
+                foreach (var occ in missing)
+                {
+                    var row = occupationView.Table.NewRow();
+
+                    row["Id"] = occ.Id;
+                    row["Occupation"] = occ.Name;
+
+                    occupationView.Table.Rows.Add(row);
+                }
+
+                d.Add(lblOccupation, occupationView);
+                occupationView.SetFocus();
+
+                Application.Run(d);
+
+                if (okPressed)
+                {
+                }
+            }
+            else
+            {
+                MessageBox.Query(50, 7, $"Results for Video \"{movie.Title}\".", "\nThere are no known occupations that have not rated this video.", "Ok");
+            }
         }
 
         public bool Quit()
